@@ -29,7 +29,7 @@ uint16_t distArray[nbSensors];
 /***********Displacement Calculations**************************/
 const float rad = 0.016;
 const float axisL = 0.09;
-const int Cpr = 7152;
+const int Cpr = 8250;
 
 void cmd_vel(float &desired_linear, float &desired_angular) {
   desired_linear = 0.0625;  // Meter / sec
@@ -206,4 +206,6 @@ void loop() {
   convert_wheel_to_velocities(desired_wheel_left - real_wheel_left, desired_wheel_right - real_wheel_right, linear_error, angle_error);
   Serial.print("real linear speed: "); Serial.println(robstate->x_vel, 5);
   Serial.print("linear speed error: "); Serial.println(linear_error, 5);
+  Serial.print("x position: "); Serial.println(robstate->x_pose);
+  Serial.print("y position: "); Serial.println(robstate->y_pose);
 }
