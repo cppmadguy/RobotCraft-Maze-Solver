@@ -6,6 +6,7 @@
 #define leftsensorpin A2
 #define middlesensorpin A3
 #define rightsensorpin A4
+
 //Array of distance sensor read by sensors
 uint16_t distArray[nbSensors];
 // Window size of the median filter (odd number, 1 = no filtering)
@@ -22,7 +23,7 @@ SharpDistSensor sensorArray[] = {
 #define pulse_per_revolution 8250
 
 void cmd_vel(float &desired_linear, float &desired_angular) {
-  desired_linear = 0.0625;  // m/s
+  desired_linear = 0.04;  // m/s
   desired_angular = 0.0;  // rad/sec
 }
 
@@ -79,39 +80,26 @@ void setMotorDirection(int motorDIR, bool forward) {
   digitalWrite(motorDIR, forward ? HIGH : LOW);
 }
 
-void rotateMotorsForward(int speed) {
-  setMotorDirection(motor1DIR, false);
-  setMotorDirection(motor2DIR, false);
-
-  setMotorSpeed(motor1PWM, speed-15);
-  setMotorSpeed(motor2PWM, speed);
+void rotateMotors(int speedleft, int speedright){
+  if(speedleft > 0){
+    setMotorDirection(motor2DIR, false);
+    setMotorSpeed(motor2PWM, min(speedleft, 255));
+  } else {
+    setMotorDirection(motor2DIR, true);
+    setMotorSpeed(motor2PWM, min(-speedleft, 255));
+  }
+  if(speedright > 0){
+    setMotorDirection(motor1DIR, false);
+    setMotorSpeed(motor1PWM, min(speedright, 255));
+  } else {
+    setMotorDirection(motor1DIR, true);
+    setMotorSpeed(motor1PWM, min(-speedright, 255));
+  }
 }
 
-void rotateMotorsBackwards(int speed) {
-  setMotorDirection(motor1DIR, true);
-  setMotorDirection(motor2DIR, true);
-
-  setMotorSpeed(motor1PWM, speed);
-  setMotorSpeed(motor2PWM, speed);
-}
-void turnLeft(int speed) {
-  setMotorDirection(motor1DIR, false);
-  setMotorDirection(motor2DIR, true);
-  setMotorSpeed(motor1PWM, speed);
-  setMotorSpeed(motor2PWM, speed);
-}
-
-void turnRight(int speed) {
-  setMotorDirection(motor1DIR, true);
-  setMotorDirection(motor2DIR, false);
-  setMotorSpeed(motor1PWM, speed);
-  setMotorSpeed(motor2PWM, speed);
-}
 /*************************ENCODERS***************************/
 Encoder encL(2, 3);    // Left wheel encoder pins
 Encoder encR(18, 19);  // Right wheel encoder pins
-
-unsigned long interval = 1000;  // Interval in milliseconds (100ms = 10Hz)
 
 /* return the number of pulses since the last call of the function */
 struct RobotState *const checkEncoderValues(unsigned long dt) {
@@ -143,58 +131,89 @@ struct RobotState *const checkEncoderValues(unsigned long dt) {
   }
 
   RobotState *Robstate = calcPose(encoderDiffL, encoderDiffR, float(dt) * 1E-3);
-  Serial.print("DeltaT: ");
-  Serial.println(dt);
-  Serial.print("Robot position x:");
-  Serial.println(Robstate->x_pose);
-  Serial.print("Robot position y:");
-  Serial.println(Robstate->y_pose);
+  // Serial.print("DeltaT: ");
+  // Serial.println(dt);
+  // Serial.print("Robot position x:");
+  // Serial.println(Robstate->x_pose);
+  // Serial.print("Robot position y:");
+  // Serial.println(Robstate->y_pose);
 
   //Print the encoder differences in both wheels
-  Serial.print("Left wheel encoder difference: ");
-  Serial.println(encoderDiffL);
+  // Serial.print("Left wheel encoder difference: ");
+  // Serial.println(encoderDiffL);
 
-  Serial.print("Right wheel encoder difference: ");
-  Serial.println(encoderDiffR);
+  // Serial.print("Right wheel encoder difference: ");
+  // Serial.println(encoderDiffR);
   return Robstate;
 }
+
+struct Errors {
+  float integral = 0;
+  float last = 0;
+  float deriv = 0;
+};
+
+void updateError(struct Errors* errors, float currentError){
+  errors->integral += currentError;
+  errors->deriv = currentError - errors->last;
+  errors->last = currentError;
+}
+
+#define Kp_left 50.f
+#define Ki_left 0.0f
+#define Kd_left 0.0f
+
+#define Kp_right 42.f
+#define Ki_right 0.0f
+#define Kd_right 0.0f
+
+void PidControl(unsigned long deltaT){
+  
+  static Errors left_errors;
+  static Errors right_errors;
+
+  RobotState *robstate = checkEncoderValues(deltaT);
+  float real_wheel_left, real_wheel_right, desired_wheel_left, desired_wheel_right, desired_linear, desired_angle;
+  cmd_vel(desired_linear, desired_angle);
+  convert_velocities_to_wheel(robstate->x_vel, robstate->angle_vel, real_wheel_left, real_wheel_right);
+  convert_velocities_to_wheel(desired_linear, desired_angle, desired_wheel_left, desired_wheel_right);
+
+  float left_error = desired_wheel_left - real_wheel_left;
+  float right_error = desired_wheel_right - real_wheel_right;
+  updateError(&left_errors, left_error);
+  updateError(&right_errors, right_error);
+  // Serial.print("Integral left error: "); Serial.println(left_errors.integral);
+  // Serial.print("Integral right error: "); Serial.println(right_errors.integral);
+  // Serial.print("Derivative left error: "); Serial.println(left_errors.deriv);
+  // Serial.print("Derivative right error: "); Serial.println(right_errors.deriv);
+  // Serial.print("Proportional left error: "); Serial.println(left_error);
+  // Serial.print("Proportional right error: "); Serial.println(right_error);
+  float Gleft = Kp_left * left_error + Ki_left * left_errors.integral * float(deltaT) + Kd_left * left_errors.deriv / float(deltaT);
+  float Gright = Kp_right * right_error + Ki_right * right_errors.integral * float(deltaT) + Kd_right * right_errors.deriv / float(deltaT);
+  Serial.print(Gleft); Serial.print(" "); Serial.println(Gright);
+  rotateMotors(Gleft, Gright);
+}
+
 void setup() {
 
   Serial.begin(9600);  // Initialize serial communication
 
   initializeMotors(); // Initialize motor pins
-  
-  rotateMotorsForward(200);
-
+  rotateMotors(0, 0);
   for (byte i = 0; i < nbSensors; i++) {
     sensorArray[i].setModel(SharpDistSensor::GP2Y0A21F_5V_DS);  // Set the sensor model
   }
 }
+
+unsigned long interval = 200; // Interval in milliseconds (100ms = 10Hz)
 
 void loop() {
   // put your main code here, to run repeatedly:
   static unsigned long previousMillis = 0;  // Previous time of the last iteration
   unsigned long currentMillis = millis();
   unsigned long deltaT = currentMillis - previousMillis;
-
-  if(sensorArray[1].getDist() <= 200){
-    rotateMotorsBackwards(0);
-  } else {
-    rotateMotorsForward(200);
-  }
-
   if (deltaT < interval) return;
   previousMillis = currentMillis;
   // Executed every interval
-
-  RobotState *robstate = checkEncoderValues(deltaT);
-  float real_wheel_left, real_wheel_right, desired_wheel_left, desired_wheel_right, desired_linear, desired_angle, linear_error, angle_error;
-  cmd_vel(desired_linear, desired_angle);
-  convert_velocities_to_wheel(robstate->x_vel, robstate->angle_vel, real_wheel_left, real_wheel_right);
-  convert_velocities_to_wheel(desired_linear, desired_angle, desired_wheel_left, desired_wheel_right);
-  convert_wheel_to_velocities(desired_wheel_left - real_wheel_left, desired_wheel_right - real_wheel_right, linear_error, angle_error);
-  Serial.print("real linear speed: "); Serial.println(robstate->x_vel, 5);
-  Serial.print("linear speed error: "); Serial.println(linear_error, 5);
-  Serial.print("x position: "); Serial.println(robstate->x_pose);
-  Serial.print("y position: "); Serial.println(robstate->y_pose);
+  PidControl(deltaT);
 }
