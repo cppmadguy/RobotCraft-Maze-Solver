@@ -42,7 +42,7 @@ struct RobotState {
 };
 
 /* This function calculate the velocities and pose of the robot using the encoders */
-struct RobotState *const calcPose(int encoderValL, int encoderValR, float dt) {
+struct RobotState *const calcPose(float encoderValL, float encoderValR, float dt) {
   static RobotState oldstate;
   RobotState newstate;
   newstate.x_vel = ((2.0 * PI * wheel_radius) * (encoderValL + encoderValR)) / (2.0 * dt *  pulse_per_revolution);
@@ -81,6 +81,7 @@ void setMotorDirection(int motorDIR, bool forward) {
 }
 
 void rotateMotors(int speedleft, int speedright){
+   speedright = speedright * 0.5;
   if(speedleft > 0){
     setMotorDirection(motor2DIR, false);
     setMotorSpeed(motor2PWM, min(speedleft, 255));
@@ -98,8 +99,8 @@ void rotateMotors(int speedleft, int speedright){
 }
 
 /*************************ENCODERS***************************/
-Encoder encL(2, 3);    // Left wheel encoder pins
-Encoder encR(18, 19);  // Right wheel encoder pins
+Encoder encR(2, 3);    // Right wheel encoder pins
+Encoder encL(18, 19);  // Left wheel encoder pins
 
 /* return the number of pulses since the last call of the function */
 struct RobotState *const checkEncoderValues(unsigned long dt) {
@@ -129,21 +130,7 @@ struct RobotState *const checkEncoderValues(unsigned long dt) {
     prevEncoderValueL = currentEncoderValueL;
     prevEncoderValueR = currentEncoderValueR;
   }
-
   RobotState *Robstate = calcPose(encoderDiffL, encoderDiffR, float(dt) * 1E-3);
-  // Serial.print("DeltaT: ");
-  // Serial.println(dt);
-  // Serial.print("Robot position x:");
-  // Serial.println(Robstate->x_pose);
-  // Serial.print("Robot position y:");
-  // Serial.println(Robstate->y_pose);
-
-  //Print the encoder differences in both wheels
-  // Serial.print("Left wheel encoder difference: ");
-  // Serial.println(encoderDiffL);
-
-  // Serial.print("Right wheel encoder difference: ");
-  // Serial.println(encoderDiffR);
   return Robstate;
 }
 
@@ -159,12 +146,12 @@ void updateError(struct Errors* errors, float currentError){
   errors->last = currentError;
 }
 
-#define Kp_left 50.f
-#define Ki_left 0.0f
+#define Kp_left 0.f
+#define Ki_left 0.05f
 #define Kd_left 0.0f
 
-#define Kp_right 42.f
-#define Ki_right 0.0f
+#define Kp_right 0.f
+#define Ki_right 0.05f
 #define Kd_right 0.0f
 
 void PidControl(unsigned long deltaT){
@@ -182,15 +169,8 @@ void PidControl(unsigned long deltaT){
   float right_error = desired_wheel_right - real_wheel_right;
   updateError(&left_errors, left_error);
   updateError(&right_errors, right_error);
-  // Serial.print("Integral left error: "); Serial.println(left_errors.integral);
-  // Serial.print("Integral right error: "); Serial.println(right_errors.integral);
-  // Serial.print("Derivative left error: "); Serial.println(left_errors.deriv);
-  // Serial.print("Derivative right error: "); Serial.println(right_errors.deriv);
-  // Serial.print("Proportional left error: "); Serial.println(left_error);
-  // Serial.print("Proportional right error: "); Serial.println(right_error);
   float Gleft = Kp_left * left_error + Ki_left * left_errors.integral * float(deltaT) + Kd_left * left_errors.deriv / float(deltaT);
   float Gright = Kp_right * right_error + Ki_right * right_errors.integral * float(deltaT) + Kd_right * right_errors.deriv / float(deltaT);
-  Serial.print(Gleft); Serial.print(" "); Serial.println(Gright);
   rotateMotors(Gleft, Gright);
 }
 
