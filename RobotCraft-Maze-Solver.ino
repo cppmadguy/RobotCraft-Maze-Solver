@@ -17,9 +17,9 @@ SharpDistSensor sensorArray[] = {
 };
 
 /***********Displacement Calculations**************************/
-const float rad = 0.016;
-const float axisL = 0.09;
-const int Cpr = 8250;
+#define wheel_radius 0.016
+#define wheel_distance 0.09
+#define pulse_per_revolution 8250
 
 void cmd_vel(float &desired_linear, float &desired_angular) {
   desired_linear = 0.0625;  // m/s
@@ -27,31 +27,31 @@ void cmd_vel(float &desired_linear, float &desired_angular) {
 }
 
 void convert_velocities_to_wheel(float linear_velocity, float angular_velocity, float &wheel_left, float &wheel_right) {
-  wheel_left = (linear_velocity - ((axisL / 2) * angular_velocity)) / rad;
-  wheel_right = (linear_velocity + ((axisL / 2) * angular_velocity)) / rad;
+  wheel_left = (linear_velocity - ((wheel_distance / 2) * angular_velocity)) / wheel_radius;
+  wheel_right = (linear_velocity + ((wheel_distance / 2) * angular_velocity)) / wheel_radius;
 }
 
 void convert_wheel_to_velocities(float wheel_left, float wheel_right, float &linear_velocity, float &angular_velocity) {
-  linear_velocity = (rad / 2) * (wheel_left + wheel_right);
-  angular_velocity = ((wheel_right - wheel_left) * rad) / axisL;
+  linear_velocity = (wheel_radius / 2) * (wheel_left + wheel_right);
+  angular_velocity = ((wheel_right - wheel_left) * wheel_radius) / wheel_distance;
 }
 
-struct Robotstate {
+struct RobotState {
   float x_pose, y_pose, angle_pose, x_vel, y_vel, angle_vel;
 };
 
 /* This function calculate the velocities and pose of the robot using the encoders */
-struct Robotstate *const calcPose(int EncoderValL, int EncoderValR, float dt) {
-  static Robotstate Rob_Oldstate{ 0 };
-  Robotstate Rob_Newstate{ 0 };
-  Rob_Newstate.x_vel = ((2.0 * PI * rad) * (EncoderValL + EncoderValR)) / (2.0 * dt *  Cpr);
-  Rob_Newstate.angle_vel = ((2.0 * PI * rad) * (EncoderValR - EncoderValL)) / (axisL * dt * Cpr);
-  Rob_Newstate.angle_pose = atan2(sin(Rob_Oldstate.angle_pose + Rob_Newstate.angle_vel * dt), cos(Rob_Oldstate.angle_pose + Rob_Newstate.angle_vel * dt));
-  Rob_Newstate.x_pose = Rob_Oldstate.x_pose + Rob_Newstate.x_vel * cos(Rob_Newstate.angle_pose) * dt;
-  Rob_Newstate.y_pose = Rob_Oldstate.y_pose + Rob_Newstate.x_vel * sin(Rob_Newstate.angle_pose) * dt;
+struct RobotState *const calcPose(int encoderValL, int encoderValR, float dt) {
+  static RobotState oldstate;
+  RobotState newstate;
+  newstate.x_vel = ((2.0 * PI * wheel_radius) * (encoderValL + encoderValR)) / (2.0 * dt *  pulse_per_revolution);
+  newstate.angle_vel = ((2.0 * PI * wheel_radius) * (encoderValR - encoderValL)) / (wheel_distance * dt * pulse_per_revolution);
+  newstate.angle_pose = atan2(sin(oldstate.angle_pose + newstate.angle_vel * dt), cos(oldstate.angle_pose + newstate.angle_vel * dt));
+  newstate.x_pose = oldstate.x_pose + newstate.x_vel * cos(newstate.angle_pose) * dt;
+  newstate.y_pose = oldstate.y_pose + newstate.x_vel * sin(newstate.angle_pose) * dt;
 
-  Rob_Oldstate = Rob_Newstate;
-  return &Rob_Oldstate;
+  oldstate = newstate;
+  return &oldstate;
 }
 
 /*************MOTORS********************/
@@ -114,7 +114,7 @@ Encoder encR(18, 19);  // Right wheel encoder pins
 unsigned long interval = 1000;  // Interval in milliseconds (100ms = 10Hz)
 
 /* return the number of pulses since the last call of the function */
-struct Robotstate *const checkEncoderValues(unsigned long dt) {
+struct RobotState *const checkEncoderValues(unsigned long dt) {
 
   static long prevEncoderValueL = 0;  // Previous left wheel encoder value
   static long prevEncoderValueR = 0;  // Previous right wheel encoder value
@@ -142,7 +142,7 @@ struct Robotstate *const checkEncoderValues(unsigned long dt) {
     prevEncoderValueR = currentEncoderValueR;
   }
 
-  Robotstate *Robstate = calcPose(encoderDiffL, encoderDiffR, float(dt) * 1E-3);
+  RobotState *Robstate = calcPose(encoderDiffL, encoderDiffR, float(dt) * 1E-3);
   Serial.print("DeltaT: ");
   Serial.println(dt);
   Serial.print("Robot position x:");
@@ -187,7 +187,7 @@ void loop() {
   previousMillis = currentMillis;
   // Executed every interval
 
-  Robotstate *robstate = checkEncoderValues(deltaT);
+  RobotState *robstate = checkEncoderValues(deltaT);
   float real_wheel_left, real_wheel_right, desired_wheel_left, desired_wheel_right, desired_linear, desired_angle, linear_error, angle_error;
   cmd_vel(desired_linear, desired_angle);
   convert_velocities_to_wheel(robstate->x_vel, robstate->angle_vel, real_wheel_left, real_wheel_right);
