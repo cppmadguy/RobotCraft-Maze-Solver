@@ -1,30 +1,20 @@
-
 #include <Encoder.h>
-bool rotateForward = false;
-
 // MOTOR1 RIGHT, MOTOR2 LEFT
-
 /***********SENSOR SECTION*******************************/
-
 #include <SharpDistSensor.h>
-const int avg_size = 4;
-const byte nbSensors = 3;
-const byte leftsensorpin = A2;
-const byte middlesensorpin = A3;
-const byte rightsensorpin = A4;
-unsigned long previousSensorTime = 0;
-
+#define nbSensors 3
+#define leftsensorpin A2
+#define middlesensorpin A3
+#define rightsensorpin A4
+//Array of distance sensor read by sensors
+uint16_t distArray[nbSensors];
 // Window size of the median filter (odd number, 1 = no filtering)
 const byte medianFilterWindowSize = 5;
-
 SharpDistSensor sensorArray[] = {
-  SharpDistSensor(leftsensorpin, medianFilterWindowSize),    // First sensor using pin A2
-  SharpDistSensor(middlesensorpin, medianFilterWindowSize),  // Second sensor using pin A3
+  SharpDistSensor(leftsensorpin, medianFilterWindowSize),    // First Sensor using pin A2
+  SharpDistSensor(middlesensorpin, medianFilterWindowSize),  // Second Sensor using pin A3
   SharpDistSensor(rightsensorpin, medianFilterWindowSize)    // Third Sensor using pin A4
 };
-
-// Define an array of integers that will store the measured distances
-uint16_t distArray[nbSensors];
 
 /***********Displacement Calculations**************************/
 const float rad = 0.016;
@@ -32,8 +22,8 @@ const float axisL = 0.09;
 const int Cpr = 8250;
 
 void cmd_vel(float &desired_linear, float &desired_angular) {
-  desired_linear = 0.0625;  // Meter / sec
-  desired_angular = 0.0;  // Radians / sec
+  desired_linear = 0.0625;  // m/s
+  desired_angular = 0.0;  // rad/sec
 }
 
 void convert_velocities_to_wheel(float linear_velocity, float angular_velocity, float &wheel_left, float &wheel_right) {
@@ -155,12 +145,12 @@ struct Robotstate *const checkEncoderValues(unsigned long dt) {
   Robotstate *Robstate = calcPose(encoderDiffL, encoderDiffR, float(dt) * 1E-3);
   Serial.print("DeltaT: ");
   Serial.println(dt);
-  Serial.print("Rob position x:");
+  Serial.print("Robot position x:");
   Serial.println(Robstate->x_pose);
-  Serial.print("Rob position y:");
+  Serial.print("Robot position y:");
   Serial.println(Robstate->y_pose);
 
-  // Print the encoder differences
+  //Print the encoder differences in both wheels
   Serial.print("Left wheel encoder difference: ");
   Serial.println(encoderDiffL);
 
@@ -169,16 +159,15 @@ struct Robotstate *const checkEncoderValues(unsigned long dt) {
   return Robstate;
 }
 void setup() {
-  // put your setup code here, to run once:
 
   Serial.begin(9600);  // Initialize serial communication
 
-  initializeMotors();
+  initializeMotors(); // Initialize motor pins
   
   rotateMotorsForward(200);
 
   for (byte i = 0; i < nbSensors; i++) {
-    sensorArray[i].setModel(SharpDistSensor::GP2Y0A21F_5V_DS);  // Set sensor model
+    sensorArray[i].setModel(SharpDistSensor::GP2Y0A21F_5V_DS);  // Set the sensor model
   }
 }
 
