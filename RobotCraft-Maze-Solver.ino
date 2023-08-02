@@ -81,7 +81,6 @@ void setMotorDirection(int motorDIR, bool forward) {
 }
 
 void rotateMotors(int speedleft, int speedright){
-   speedright = speedright * 0.5;
   if(speedleft > 0){
     setMotorDirection(motor2DIR, false);
     setMotorSpeed(motor2PWM, min(speedleft, 255));
