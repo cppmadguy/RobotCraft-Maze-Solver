@@ -25,12 +25,7 @@ floorplan (
    pose [13.525 10.825 0.000 0.000]  
    bitmap "../maps/1r5.pgm"
 )
-<<<<<<< HEAD
-include "../robots/simple_robot.inc"
-simple_robot (pose [ 16.838 15.844 0.000 6.775 ] name "robot")
-
-=======
 
 include "../robots/ourBot.inc"
 ourBot (pose [ 11.1 9.2 0.000 90.000 ] name "robot")
->>>>>>> 43e78ebc86f1eca255251c0a5f1917f0da703d1f
+
