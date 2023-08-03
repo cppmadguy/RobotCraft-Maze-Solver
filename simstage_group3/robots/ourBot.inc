@@ -1,8 +1,8 @@
 define laser ranger(
   sensor(
     range [ 0.0  5.6 ]
-    fov 180.0
-    samples 45
+    fov 340.0
+    samples 340
   )
 
   color "blue"
