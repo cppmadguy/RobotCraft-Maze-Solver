@@ -1,0 +1,9 @@
+<launch>
+
+  <node name="gmapping" pkg="gmapping" type="slam_gmapping" output="screen">
+    <remap from="scan" to="base_scan"/>
+  </node>
+
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find simstage_group3)/rviz/rviz_config.rviz" output="screen">
+  </node>
+</launch>

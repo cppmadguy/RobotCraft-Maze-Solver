@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
   // Initializations:
   geometry_msgs::Twist cmd_vel_msg;
 
-  double obstacle_avoidance_distance = 0.9; // Set the distance at which the robot stops for obstacle avoidance
+  double obstacle_avoidance_distance = 1.5; // Set the distance at which the robot stops for obstacle avoidance
 
   while (ros::ok()) {
     // Obstacle avoidance behavior:

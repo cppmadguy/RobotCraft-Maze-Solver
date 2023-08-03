@@ -1,0 +1,8 @@
+
+<launch>
+<node name="stage_simulator" pkg="stage_ros" type="stageros" args="$(find simstage_group3)/worlds/rooms.world" output="screen">
+</node>
+
+  <node name="reactive_navigation_example" pkg="simstage_group3" type="reactive_navigation_example" output="screen">
+  </node>
+</launch>

@@ -27,5 +27,5 @@ floorplan (
 )
 
 include "../robots/ourBot.inc"
-ourBot (pose [ 11.1 9.2 0.000 90.000 ] name "robot")
+ourBot (pose [ 6.43 4.69 0.000 124.000 ] name "robot")
 
