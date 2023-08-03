@@ -25,3 +25,6 @@ floorplan (
    pose [13.525 10.825 0.000 0.000]  
    bitmap "../maps/my_map.pgm"
 )
+
+include "../robots/ourBot.inc"
+ourBot (pose [ 11.1 9.2 0.000 90.000 ] name "robot")
