@@ -20,7 +20,8 @@ SharpDistSensor sensorArray[] = {
 /***********Displacement Calculations**************************/
 #define wheel_radius 0.016
 #define wheel_distance 0.09
-#define pulse_per_revolution 8250
+#define pulse_per_rev_L 30000
+#define pulse_per_rev_R 8100
 
 void cmd_vel(float &desired_linear, float &desired_angular) {
   desired_linear = 0.04;  // m/s
@@ -45,8 +46,9 @@ struct RobotState {
 struct RobotState *const calcPose(float encoderValL, float encoderValR, float dt) {
   static RobotState oldstate;
   RobotState newstate;
-  newstate.x_vel = ((2.0 * PI * wheel_radius) * (encoderValL + encoderValR)) / (2.0 * dt *  pulse_per_revolution);
-  newstate.angle_vel = ((2.0 * PI * wheel_radius) * (encoderValR - encoderValL)) / (wheel_distance * dt * pulse_per_revolution);
+  // newstate.x_vel = ((2.0 * PI * wheel_radius) * (encoderValL + encoderValR)) / (2.0 * dt *  pulse_per_rev);
+  newstate.x_vel = 2.0 * PI * wheel_radius * ((encoderValL / pulse_per_rev_L) + (encoderValR / pulse_per_rev_R)) / (2.0 * dt); 
+  newstate.angle_vel = 2.0 * PI * wheel_radius * ((encoderValR/pulse_per_rev_R) - (encoderValL/pulse_per_rev_L)) / (wheel_distance * dt);
   newstate.angle_pose = atan2(sin(oldstate.angle_pose + newstate.angle_vel * dt), cos(oldstate.angle_pose + newstate.angle_vel * dt));
   newstate.x_pose = oldstate.x_pose + newstate.x_vel * cos(newstate.angle_pose) * dt;
   newstate.y_pose = oldstate.y_pose + newstate.x_vel * sin(newstate.angle_pose) * dt;
@@ -175,13 +177,16 @@ void PidControl(unsigned long deltaT){
 
 void setup() {
 
-  Serial.begin(9600);  // Initialize serial communication
-
   initializeMotors(); // Initialize motor pins
-  rotateMotors(0, 0);
+  rotateMotors(0, 200);
+
+  Serial.begin(9600);  // Initialize serial communication
   for (byte i = 0; i < nbSensors; i++) {
     sensorArray[i].setModel(SharpDistSensor::GP2Y0A21F_5V_DS);  // Set the sensor model
   }
+
+  encL.readAndReset();
+  encR.readAndReset();
 }
 
 unsigned long interval = 200; // Interval in milliseconds (100ms = 10Hz)
@@ -196,3 +201,7 @@ void loop() {
   // Executed every interval
   PidControl(deltaT);
 }
+
+// void loop(){
+//   if(-encR.read() >= pulse_per_rev_R) rotateMotors(0, 0);
+// }
