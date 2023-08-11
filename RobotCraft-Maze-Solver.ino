@@ -1,11 +1,13 @@
 
-#include <ros.h>
-ros::NodeHandle nh;
-
+#include <SharpDistSensor.h>
 #include <Encoder.h>
+#include <ros.h>
+#include <std_msgs/Empty.h>
+#include <geometry_msgs/Twist.h>
+
 // MOTOR1 RIGHT, MOTOR2 LEFT
 /***********SENSOR SECTION*******************************/
-#include <SharpDistSensor.h>
+
 #define nbSensors 3
 #define leftsensorpin A2
 #define middlesensorpin A3
@@ -24,21 +26,19 @@ SharpDistSensor sensorArray[] = {
 /***********Displacement Calculations**************************/
 #define wheel_radius 0.016
 #define wheel_distance 0.09
-#define pulse_per_revolution 8250
+#define pulse_per_rev 8100
+
+float cmd_linear = 0;
+float cmd_angular = 0;
 
 void cmd_vel(float &desired_linear, float &desired_angular) {
-  desired_linear = 0.04;  // m/s
-  desired_angular = 0.0;  // rad/sec
+  desired_linear = cmd_linear;  // m/s
+  desired_angular = cmd_angular;  // rad/sec
 }
 
 void convert_velocities_to_wheel(float linear_velocity, float angular_velocity, float &wheel_left, float &wheel_right) {
   wheel_left = (linear_velocity - ((wheel_distance / 2) * angular_velocity)) / wheel_radius;
   wheel_right = (linear_velocity + ((wheel_distance / 2) * angular_velocity)) / wheel_radius;
-}
-
-void convert_wheel_to_velocities(float wheel_left, float wheel_right, float &linear_velocity, float &angular_velocity) {
-  linear_velocity = (wheel_radius / 2) * (wheel_left + wheel_right);
-  angular_velocity = ((wheel_right - wheel_left) * wheel_radius) / wheel_distance;
 }
 
 struct RobotState {
@@ -49,12 +49,12 @@ struct RobotState {
 struct RobotState *const calcPose(float encoderValL, float encoderValR, float dt) {
   static RobotState oldstate;
   RobotState newstate;
-  newstate.x_vel = ((2.0 * PI * wheel_radius) * (encoderValL + encoderValR)) / (2.0 * dt *  pulse_per_revolution);
-  newstate.angle_vel = ((2.0 * PI * wheel_radius) * (encoderValR - encoderValL)) / (wheel_distance * dt * pulse_per_revolution);
+  //newstate.x_vel = ((2.0 * PI * wheel_radius) * (encoderValL + encoderValR)) / (2.0 * dt *  pulse_per_rev);
+  newstate.x_vel = 2.0 * PI * wheel_radius * (encoderValL + encoderValR) / (pulse_per_rev * 2.0 * dt); 
+  newstate.angle_vel = 2.0 * PI * wheel_radius * (encoderValR - encoderValL) / (pulse_per_rev * wheel_distance * dt);
   newstate.angle_pose = atan2(sin(oldstate.angle_pose + newstate.angle_vel * dt), cos(oldstate.angle_pose + newstate.angle_vel * dt));
   newstate.x_pose = oldstate.x_pose + newstate.x_vel * cos(newstate.angle_pose) * dt;
   newstate.y_pose = oldstate.y_pose + newstate.x_vel * sin(newstate.angle_pose) * dt;
-
   oldstate = newstate;
   return &oldstate;
 }
@@ -117,15 +117,15 @@ struct RobotState *const checkEncoderValues(unsigned long dt) {
 
   if (first) {
     first = 0;
-    encoderDiffL = -encL.read();
-    encoderDiffR = encR.read();
+    encoderDiffL = encL.read();
+    encoderDiffR = -encR.read();
     prevEncoderValueL = encoderDiffL;
     prevEncoderValueR = encoderDiffR;
 
   } else {
     // Calculate the difference in encoder values
-    long currentEncoderValueL = -encL.read();
-    long currentEncoderValueR = encR.read();
+    long currentEncoderValueL = encL.read();
+    long currentEncoderValueR = -encR.read();
 
     encoderDiffL = currentEncoderValueL - prevEncoderValueL;
     encoderDiffR = currentEncoderValueR - prevEncoderValueR;
@@ -140,25 +140,17 @@ struct RobotState *const checkEncoderValues(unsigned long dt) {
 struct Errors {
   float integral = 0;
   float last = 0;
-  float deriv = 0;
 };
 
 void updateError(struct Errors* errors, float currentError){
   errors->integral += currentError;
-  errors->deriv = currentError - errors->last;
   errors->last = currentError;
 }
 
-#define Kp_left 0.f
-#define Ki_left 0.05f
-#define Kd_left 0.0f
-
-#define Kp_right 0.f
-#define Ki_right 0.05f
-#define Kd_right 0.0f
+#define Kp 0.7f
+#define Ki 0.1f
 
 void PidControl(unsigned long deltaT){
-  
   static Errors left_errors;
   static Errors right_errors;
 
@@ -172,31 +164,50 @@ void PidControl(unsigned long deltaT){
   float right_error = desired_wheel_right - real_wheel_right;
   updateError(&left_errors, left_error);
   updateError(&right_errors, right_error);
-  float Gleft = Kp_left * left_error + Ki_left * left_errors.integral * float(deltaT) + Kd_left * left_errors.deriv / float(deltaT);
-  float Gright = Kp_right * right_error + Ki_right * right_errors.integral * float(deltaT) + Kd_right * right_errors.deriv / float(deltaT);
+  float Gleft = Kp * left_error + Ki * left_errors.integral * float(deltaT);
+  float Gright = Kp * right_error + Ki * right_errors.integral * float(deltaT);
   rotateMotors(Gleft, Gright);
 }
 
-void setup() {
+/***** ROS Integration *****/
 
+ros::NodeHandle  nh;
+
+void receive_cmd(const geometry_msgs::Twist& twist_msg){
+  cmd_linear = twist_msg.linear.x;
+  cmd_angular = twist_msg.angular.z;
+}
+
+ros::Subscriber<geometry_msgs::Twist> sub("RobVel", receive_cmd);
+
+void setup() {
   initializeMotors(); // Initialize motor pins
   rotateMotors(0, 0);
+  // Serial.begin(57600);  // Initialize serial communication
   for (byte i = 0; i < nbSensors; i++) {
     sensorArray[i].setModel(SharpDistSensor::GP2Y0A21F_5V_DS);  // Set the sensor model
   }
+  encL.readAndReset();
+  encR.readAndReset();
+
   nh.initNode();
+  nh.getHardware()->setBaud(57600);
+  nh.subscribe(sub);
 }
 
-unsigned long interval = 100; // Interval in milliseconds (100ms = 10Hz)
+unsigned long interval = 1000; // Interval in milliseconds (100ms = 10Hz)
 
 void loop() {
+  
   // put your main code here, to run repeatedly:
   static unsigned long previousMillis = 0;  // Previous time of the last iteration
   unsigned long currentMillis = millis();
   unsigned long deltaT = currentMillis - previousMillis;
   if (deltaT < interval) return;
   previousMillis = currentMillis;
+
   // Executed every interval
   PidControl(deltaT);
+
   nh.spinOnce();
 }
