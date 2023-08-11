@@ -1,7 +1,13 @@
 
+#include <SharpDistSensor.h>
+#include <Encoder.h>
+#include <ros.h>
+#include <std_msgs/Empty.h>
+#include <geometry_msgs/Twist.h>
+
 // MOTOR1 RIGHT, MOTOR2 LEFT
 /***********SENSOR SECTION*******************************/
-#include <SharpDistSensor.h>
+
 #define nbSensors 3
 #define leftsensorpin A2
 #define middlesensorpin A3
@@ -22,9 +28,12 @@ SharpDistSensor sensorArray[] = {
 #define wheel_distance 0.09
 #define pulse_per_rev 8100
 
+float cmd_linear = 0;
+float cmd_angular = 0;
+
 void cmd_vel(float &desired_linear, float &desired_angular) {
-  desired_linear = 0.00;  // m/s
-  desired_angular = 0;  // rad/sec
+  desired_linear = cmd_linear;  // m/s
+  desired_angular = cmd_angular;  // rad/sec
 }
 
 void convert_velocities_to_wheel(float linear_velocity, float angular_velocity, float &wheel_left, float &wheel_right) {
@@ -92,7 +101,6 @@ void rotateMotors(int speedleft, int speedright){
   }
 }
 
-#include <Encoder.h>
 /*************************ENCODERS***************************/
 Encoder encR(2, 3);    // Right wheel encoder pins
 Encoder encL(18, 19);  // Left wheel encoder pins
@@ -163,29 +171,28 @@ void PidControl(unsigned long deltaT){
 
 /***** ROS Integration *****/
 
-#include <ros.h>
-
 ros::NodeHandle  nh;
 
-std_msgs::String str_msg;
-ros::Publisher chatter("chatter", &str_msg);
+void receive_cmd(const geometry_msgs::Twist& twist_msg){
+  cmd_linear = twist_msg.linear.x;
+  cmd_angular = twist_msg.angular.z;
+}
 
-char hello[13] = "hello world!";
-
+ros::Subscriber<geometry_msgs::Twist> sub("RobVel", receive_cmd);
 
 void setup() {
   initializeMotors(); // Initialize motor pins
   rotateMotors(0, 0);
-  Serial.begin(9600);  // Initialize serial communication
-  // nh.getHardware()->setBaud(9600);
+  // Serial.begin(57600);  // Initialize serial communication
   for (byte i = 0; i < nbSensors; i++) {
     sensorArray[i].setModel(SharpDistSensor::GP2Y0A21F_5V_DS);  // Set the sensor model
   }
   encL.readAndReset();
   encR.readAndReset();
 
-  nh.initNode()
-  nh.advertise()
+  nh.initNode();
+  nh.getHardware()->setBaud(57600);
+  nh.subscribe(sub);
 }
 
 unsigned long interval = 1000; // Interval in milliseconds (100ms = 10Hz)
@@ -202,7 +209,5 @@ void loop() {
   // Executed every interval
   PidControl(deltaT);
 
-  str_msg.data = hello;
-  chatter.publish( &str_msg );
   nh.spinOnce();
 }
