@@ -1,4 +1,4 @@
-#include <Encoder.h>
+
 // MOTOR1 RIGHT, MOTOR2 LEFT
 /***********SENSOR SECTION*******************************/
 #include <SharpDistSensor.h>
@@ -20,11 +20,10 @@ SharpDistSensor sensorArray[] = {
 /***********Displacement Calculations**************************/
 #define wheel_radius 0.016
 #define wheel_distance 0.09
-#define pulse_per_rev_L 8100
-#define pulse_per_rev_R 8100
+#define pulse_per_rev 8100
 
 void cmd_vel(float &desired_linear, float &desired_angular) {
-  desired_linear = 0.04;  // m/s
+  desired_linear = 0.00;  // m/s
   desired_angular = 0;  // rad/sec
 }
 
@@ -42,8 +41,8 @@ struct RobotState *const calcPose(float encoderValL, float encoderValR, float dt
   static RobotState oldstate;
   RobotState newstate;
   //newstate.x_vel = ((2.0 * PI * wheel_radius) * (encoderValL + encoderValR)) / (2.0 * dt *  pulse_per_rev);
-  newstate.x_vel = 2.0 * PI * wheel_radius * ((encoderValL / pulse_per_rev_L) + (encoderValR / pulse_per_rev_R)) / (2.0 * dt); 
-  newstate.angle_vel = 2.0 * PI * wheel_radius * ((encoderValR/pulse_per_rev_R) - (encoderValL/pulse_per_rev_L)) / (wheel_distance * dt);
+  newstate.x_vel = 2.0 * PI * wheel_radius * (encoderValL + encoderValR) / (pulse_per_rev * 2.0 * dt); 
+  newstate.angle_vel = 2.0 * PI * wheel_radius * (encoderValR - encoderValL) / (pulse_per_rev * wheel_distance * dt);
   newstate.angle_pose = atan2(sin(oldstate.angle_pose + newstate.angle_vel * dt), cos(oldstate.angle_pose + newstate.angle_vel * dt));
   newstate.x_pose = oldstate.x_pose + newstate.x_vel * cos(newstate.angle_pose) * dt;
   newstate.y_pose = oldstate.y_pose + newstate.x_vel * sin(newstate.angle_pose) * dt;
@@ -93,6 +92,7 @@ void rotateMotors(int speedleft, int speedright){
   }
 }
 
+#include <Encoder.h>
 /*************************ENCODERS***************************/
 Encoder encR(2, 3);    // Right wheel encoder pins
 Encoder encL(18, 19);  // Left wheel encoder pins
@@ -161,6 +161,18 @@ void PidControl(unsigned long deltaT){
   rotateMotors(Gleft, Gright);
 }
 
+/***** ROS Integration *****/
+
+#include <ros.h>
+
+ros::NodeHandle  nh;
+
+std_msgs::String str_msg;
+ros::Publisher chatter("chatter", &str_msg);
+
+char hello[13] = "hello world!";
+
+
 void setup() {
   initializeMotors(); // Initialize motor pins
   rotateMotors(0, 0);
@@ -171,9 +183,12 @@ void setup() {
   }
   encL.readAndReset();
   encR.readAndReset();
+
+  nh.initNode()
+  nh.advertise()
 }
 
-unsigned long interval = 100; // Interval in milliseconds (100ms = 10Hz)
+unsigned long interval = 1000; // Interval in milliseconds (100ms = 10Hz)
 
 void loop() {
   
@@ -183,6 +198,11 @@ void loop() {
   unsigned long deltaT = currentMillis - previousMillis;
   if (deltaT < interval) return;
   previousMillis = currentMillis;
+
   // Executed every interval
   PidControl(deltaT);
+
+  str_msg.data = hello;
+  chatter.publish( &str_msg );
+  nh.spinOnce();
 }
