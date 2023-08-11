@@ -20,29 +20,29 @@ void laserCallback(const sensor_msgs::LaserScan::ConstPtr& msg) {
 
 int main(int argc, char **argv) {
   ros::init(argc, argv, "obstacle_avoidance");
-  ros::NodeHandle n;
+  ros::NodeHandle nh;
 
   // Publisher for /cmd_vel
-  ros::Publisher cmd_vel_pub = n.advertise<geometry_msgs::Twist>("cmd_vel", 100);
+  ros::Publisher cmd_vel_pub = nh.advertise<geometry_msgs::Twist>("cmd_vel", 100);
   // Subscriber for /base_scan
-  ros::Subscriber laser_sub = n.subscribe("base_scan", 100, laserCallback);
+  ros::Subscriber laser_sub = nh.subscribe("base_scan", 100, laserCallback);
 
-  ros::Rate loop_rate(20); // 20 Hz
+  ros::Rate loop_rate(10); // 10 Hz
 
   // Initializations:
   geometry_msgs::Twist cmd_vel_msg;
 
-  double obstacle_avoidance_distance = 1.5; // Set the distance at which the robot stops for obstacle avoidance
+  double obstacle_avoidance_distance = 0.45; // Set the distance at which the robot stops for obstacle avoidance
 
   while (ros::ok()) {
     // Obstacle avoidance behavior:
     if (obstacle_distance_front < obstacle_avoidance_distance) {
       // If an obstacle is detected in the front region, stop and rotate in place
       cmd_vel_msg.linear.x = 0.0; // Stop forward movement
-      cmd_vel_msg.angular.z = 1.2; // Rotate in place
+      cmd_vel_msg.angular.z = 0.8; // Rotate in place
     } else {
       // If no obstacle is detected in the front region, move forward
-      cmd_vel_msg.linear.x = 2.5; // Move forward at a constant speed
+      cmd_vel_msg.linear.x = 2.0; // Move forward at a constant speed
       cmd_vel_msg.angular.z = 0.0; // No angular velocity
     }
 

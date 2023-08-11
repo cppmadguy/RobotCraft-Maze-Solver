@@ -23,9 +23,9 @@ window(
 floorplan (
    size [27.050 21.650 1.000]
    pose [13.525 10.825 0.000 0.000]  
-   bitmap "../maps/1r5.pgm"
+   bitmap "../maps/my_map.pgm"
 )
 
 include "../robots/ourBot.inc"
-ourBot (pose [ 6.43 4.69 0.000 124.000 ] name "robot")
+ourBot (pose [ 7 16 0.000 -112.000 ] name "robot")
 

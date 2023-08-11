@@ -1,3 +1,7 @@
+
+#include <ros.h>
+ros::NodeHandle nh;
+
 #include <Encoder.h>
 // MOTOR1 RIGHT, MOTOR2 LEFT
 /***********SENSOR SECTION*******************************/
@@ -175,16 +179,15 @@ void PidControl(unsigned long deltaT){
 
 void setup() {
 
-  Serial.begin(9600);  // Initialize serial communication
-
   initializeMotors(); // Initialize motor pins
   rotateMotors(0, 0);
   for (byte i = 0; i < nbSensors; i++) {
     sensorArray[i].setModel(SharpDistSensor::GP2Y0A21F_5V_DS);  // Set the sensor model
   }
+  nh.initNode();
 }
 
-unsigned long interval = 200; // Interval in milliseconds (100ms = 10Hz)
+unsigned long interval = 100; // Interval in milliseconds (100ms = 10Hz)
 
 void loop() {
   // put your main code here, to run repeatedly:
@@ -195,4 +198,5 @@ void loop() {
   previousMillis = currentMillis;
   // Executed every interval
   PidControl(deltaT);
+  nh.spinOnce();
 }
