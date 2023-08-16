@@ -3,6 +3,7 @@
 #include <Encoder.h>
 #include <ros.h>
 #include <std_msgs/Empty.h>
+#include <std_msgs/Float32.h>
 #include <geometry_msgs/Twist.h>
 
 // MOTOR1 RIGHT, MOTOR2 LEFT
@@ -28,7 +29,7 @@ SharpDistSensor sensorArray[] = {
 #define wheel_distance 0.09
 #define pulse_per_rev 8100
 
-float cmd_linear = 0;
+float cmd_linear = 0.04;
 float cmd_angular = 0;
 
 void cmd_vel(float &desired_linear, float &desired_angular) {
@@ -178,7 +179,13 @@ void receive_cmd(const geometry_msgs::Twist& twist_msg){
   cmd_angular = twist_msg.angular.z;
 }
 
-ros::Subscriber<geometry_msgs::Twist> sub("RobVel", receive_cmd);
+ros::Subscriber<geometry_msgs::Twist> sub("cmd_vel", receive_cmd);
+std_msgs::Float32 ourFloat;
+ros::Publisher pub[3] = {
+  ros::Publisher("left_distance", &ourFloat), 
+  ros::Publisher("front_distance", &ourFloat),
+  ros::Publisher("right_distance", &ourFloat)
+};
 
 void setup() {
   initializeMotors(); // Initialize motor pins
@@ -193,9 +200,12 @@ void setup() {
   nh.initNode();
   nh.getHardware()->setBaud(57600);
   nh.subscribe(sub);
+  for(byte i = 0; i < 3; i++){
+    nh.advertise(pub[i]);
+  }
 }
 
-unsigned long interval = 1000; // Interval in milliseconds (100ms = 10Hz)
+unsigned long interval = 100; // Interval in milliseconds (100ms = 10Hz)
 
 void loop() {
   
@@ -208,6 +218,16 @@ void loop() {
 
   // Executed every interval
   PidControl(deltaT);
-
+  char buff[20];
+  for(byte i = 0; i < nbSensors; i++){
+    distArray[i] = sensorArray[i].getDist();
+    ourFloat.data = float(distArray[i]) / 1000;
+    pub[i].publish(&ourFloat);
+  }
+  // front_distance
+  // left_distance
+  // right_distance
+  // pose
+  
   nh.spinOnce();
 }
