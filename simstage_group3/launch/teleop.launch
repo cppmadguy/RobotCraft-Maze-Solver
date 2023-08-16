@@ -1,0 +1,8 @@
+
+<launch>
+<node name="stage_simulator" pkg="stage_ros" type="stageros" args="$(find simstage_group3)/worlds/rooms.world" output="screen">
+</node>
+
+  <node name="teleop_twist_keyboard_node" pkg="teleop_twist_keyboard" type="teleop_twist_keyboard.py" output="screen">
+  </node>
+</launch>

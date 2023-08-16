@@ -1,12 +1,12 @@
 define laser ranger(
   sensor(
     range [ 0.0  5.6 ]
-    fov 340.0
-    samples 340
+    fov 360
+    samples 360
   )
 
   color "blue"
-  size [ 0.06 0.06 0.06 ]
+  size [ 0.03 0.03 0.03 ]
 
   block( points 4
      point[0] [0 0]
@@ -21,10 +21,10 @@ define ourBot position(
 
   odom_error [0.03 0.03 0.00 0.05]
   localization "odom"
-  size [ 1 1 2 ]
+  size [ 0.25 0.25 0.5 ]
   gui_nose 1
   drive "diff"
-  laser(pose [ 0.5 0 -1.5 0 ])
+  laser(pose [ 0.125 0 -0.25 0 ])
 
   color "red"
   block(

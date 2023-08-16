@@ -1,0 +1,3 @@
+<launch>
+    <node name="robot_driver_node" pkg="robotcraft2023_driver_g3" type="robot_driver" output="screen" />
+</launch>
