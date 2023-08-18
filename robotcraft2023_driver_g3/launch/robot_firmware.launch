@@ -2,8 +2,8 @@
     <!-- Launch the serial_node.py from rosserial_python package -->
     <node name="serial_node" pkg="rosserial_python" type="serial_node.py">
         <!-- Specify the USB port that your Arduino is connected to -->
-        <param name="port" value="/dev/ttyUSB0"/>
+        <param name="port" value="/dev/ttyACM0"/>
         <!-- Specify the baud rate (baud rate should match the one in your Arduino code) -->
-        <param name="baud" value="115200"/>
+        <param name="baud" value="57600"/>
     </node>
 </launch>

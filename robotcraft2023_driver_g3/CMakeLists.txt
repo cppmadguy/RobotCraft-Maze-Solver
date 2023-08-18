@@ -142,6 +142,8 @@ include_directories(
 # add_executable(${PROJECT_NAME}_node src/robotcraft2023_driver_g3_node.cpp)
 add_executable(robot_driver src/robot_driver.cpp)
 target_link_libraries(robot_driver ${catkin_LIBRARIES})
+add_executable(square_test src/square_test.cpp)
+target_link_libraries(square_test ${catkin_LIBRARIES})
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
