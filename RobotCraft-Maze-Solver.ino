@@ -33,7 +33,9 @@ SharpDistSensor sensorArray[] = {
 #define wheel_distance 0.09
 #define pulse_per_rev 8100
 
+
 float cmd_linear = 0.00;
+
 float cmd_angular = 0;
 
 void cmd_vel(float &desired_linear, float &desired_angular) {
@@ -268,4 +270,5 @@ void loop() {
   pose_pub.publish(&ourPose);
   
   FastLED.show();
+
 }
