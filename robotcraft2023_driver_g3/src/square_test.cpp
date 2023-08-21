@@ -10,13 +10,8 @@ ros::Subscriber ir_left_sub;
 ros::Subscriber ir_right_sub;
 ros::Subscriber odom_sub;
 geometry_msgs::Twist cmd;
-ros::Publisher set_pose_pub;
 geometry_msgs::Pose2D msg;
-geometry_msgs::Pose2D reset_pose;
-int state = 0;  // 0: moving forward, 1: rotating
-double target_angle = 0.0;
-double target_distance = 0.5;  // 30 cm
-double angular_velocity = 0.3;  // Adjust as needed
+
 
 
 void irFrontCallback(const sensor_msgs::Range::ConstPtr& ir_front_msg)
@@ -47,41 +42,51 @@ void irLeftCallback(const sensor_msgs::Range::ConstPtr& ir_left_msg)
 }
 
 
+double pos_x = 0.0;  // Initial x-coordinate
+double pos_y = 0.0;  // Initial y-coordinate
 
-
-void resetRobotOrientation() {
-    set_pose_pub.publish(reset_pose);
-}
+double target_distance = 0.5;  // 50 cm
+double target_angle = 0.0;
+int step = 0;  // Current step in the pattern
+double target_angle_val[4] = {1.5708,3.14159,-1.5708,0};
 void odomCallback(const nav_msgs::Odometry::ConstPtr& msg)
 {
     double current_x = msg->pose.pose.position.x;
     double current_y = msg->pose.pose.position.y;
-
-    if (state == 0) {
-        if (current_x < target_distance) {
-            cmd.linear.x = 0.1;  // Adjust linear velocity as needed
+    double current_yaw = tf::getYaw(msg->pose.pose.orientation);
+    double d = sqrt((current_x - pos_x) * (current_x - pos_x) + (current_y - pos_y) * (current_y - pos_y));
+    static int i = 0;
+    if (step == 0) {
+        if (d < target_distance) {
+            cmd.linear.x = 0.1;  // Move forward
             cmd.angular.z = 0.0;
         } else {
             cmd.linear.x = 0.0;
             cmd.angular.z = 0.0;
-            state = 1;  // Start rotating
-            target_angle = tf::getYaw(msg->pose.pose.orientation) + M_PI / 2.0;  // 90 degrees
+            step = 1;  // Proceed to turning step
         }
-    } else if (state == 1) {
-        double current_yaw = tf::getYaw(msg->pose.pose.orientation);
-        double angle_error = target_angle - current_yaw;
-
+    } else if (step == 1) {  
+        double angle_error = target_angle_val[i] - current_yaw;
+        ROS_INFO("Angle Error = %lf",angle_error);
         if (std::abs(angle_error) > 0.1) {
             cmd.linear.x = 0.0;
-            cmd.angular.z = angular_velocity;  // Rotate
+            cmd.angular.z = 0.3;  // Adjust angular velocity for turning
         } else {
             cmd.linear.x = 0.0;
             cmd.angular.z = 0.0;
-            resetRobotOrientation();  // Reset orientation to 0 degrees
-            state = 0;  // Move forward again
+            step = 0;  // Reset step to move forward
+            pos_x = current_x;  // Update initial position for next side
+            pos_y = current_y;
+            i++;
+            if(i == 4)
+            {
+                i = 0;
+            }
         }
     }
+    ROS_INFO("Target Angle:%lf",target_angle);
 
+    // Publish the calculated linear and angular velocities to cmd_vel topic
     cmd_vel_pub.publish(cmd);
 }
 
@@ -92,16 +97,14 @@ int main(int argc, char** argv)
 
     cmd_vel_pub = nh.advertise<geometry_msgs::Twist>("/cmd_vel", 10);
     odom_sub = nh.subscribe("/odom", 10, odomCallback);
-    set_pose_pub = nh.advertise<geometry_msgs::Pose2D>("/set_pose", 10);
     ir_front_sub = nh.subscribe("/ir_front_sensor", 10, irFrontCallback);
     ir_right_sub = nh.subscribe("/ir_right_sensor", 10, irRightCallback);
     ir_left_sub = nh.subscribe("/ir_left_sensor", 10, irLeftCallback);
 
-    reset_pose.x = 0;
-    reset_pose.y = 0;
-    reset_pose.theta = 0;
-    set_pose_pub.publish(reset_pose);
 
     ros::Rate loop_rate(10);
-    ros::spin();
+    while(ros::ok()){
+    ros::spinOnce();
+    loop_rate.sleep();  
+    }
 }

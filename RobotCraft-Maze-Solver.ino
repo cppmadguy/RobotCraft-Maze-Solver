@@ -5,10 +5,31 @@
 
 #include <ros.h>
 
+#include <rosserial_arduino/Test.h>
+#include <std_msgs/String.h>
+
 #include <std_msgs/Float32.h>
 #include <std_msgs/UInt8MultiArray.h>
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/Pose2D.h>
+
+/*********BUZZER_SECTION**************************/
+bool buzzerOn = false;
+void controlBuzzer(bool state) {
+  
+}
+void buzzerCallback(const rosserial_arduino::Test::Request& req,rosserial_arduino::Test::Response &res) {
+  if (req.input == "on") {
+    controlBuzzer(true);
+    res.output = "Buzzer is turned ON.";
+  } else if (req.input == "off") {
+    controlBuzzer(false);
+    res.output = "Buzzer is turned OFF.";
+  } else {
+    res.output = "Invalid request.";
+  }
+
+}
 
 // MOTOR1 RIGHT, MOTOR2 LEFT
 /***********SENSOR SECTION*******************************/
@@ -219,6 +240,9 @@ ros::Publisher dist_pub[3] = {
 geometry_msgs::Pose2D ourPose;
 ros::Publisher pose_pub("pose", &ourPose);
 
+ros::ServiceServer<rosserial_arduino::Test::Request,rosserial_arduino::Test::Response> buzzerService("buzzer_control",&buzzerCallback);
+
+
 void setup() {
   initializeMotors(); // Initialize motor pins
   rotateMotors(0, 0);
@@ -233,6 +257,8 @@ void setup() {
   nh.subscribe(led_sub);
   nh.subscribe(cmd_sub);
   nh.subscribe(set_pose_sub);
+
+  nh.advertiseService<rosserial_arduino::Test::Request,rosserial_arduino::Test::Response>(buzzerService);
   
   for(byte i = 0; i < 3; i++){
     nh.advertise(dist_pub[i]);
