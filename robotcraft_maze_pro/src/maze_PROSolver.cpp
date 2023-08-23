@@ -11,10 +11,10 @@ std::array<Vec2D, 4> cardDirs = {
 };
 
 enum CellType {
-    Wall = -5,
-    Empty = -4,
-    Goal = -3,
-    Reached = -2,
+    Wall = -5, // Wall can't be traversed
+    Empty = -4, // Empty cells are reachable if their neighbors are reachable. Replaced with distance
+    Goal = -3, // Goal cells are reachable if their neighbors are reachable. Replaced by Reached
+    Reached = -2, // Goals that could be reached. 
     Start = -1
 };
 
@@ -26,11 +26,13 @@ void map_fun(const std::vector<int8_t>& data, uint32_t width, uint32_t height){
 
     std::vector<int16_t> grid;
     grid.reserve(data.size());
+    // Convert occupancy grid to our own type of grid.
     for(auto cel : data){
         if(cel == 0) grid.push_back(CellType::Empty);
         else grid.push_back(CellType::Wall);
     }
 
+    // Mark the start and end Goal.
     grid[origin.y * width + origin.x] = CellType::Start;
     grid[goal.y * width + goal.x] = CellType::Goal;
 
@@ -39,6 +41,7 @@ void map_fun(const std::vector<int8_t>& data, uint32_t width, uint32_t height){
     int16_t distance = 1;
 
     while(wave.size() > 0){
+        // Expand all neighbors of the reachable cells.
         for(auto& wa : wave){
             for(auto& di : cardDirs){
                 auto pos = Vec2D{wa.x + di.x, wa.y + di.y};
@@ -58,6 +61,7 @@ void map_fun(const std::vector<int8_t>& data, uint32_t width, uint32_t height){
                 }
             }
         }
+        // The reached cells will be expanded.
         wave = std::move(next);
         distance += 1;
     }
@@ -78,6 +82,7 @@ void map_fun(const std::vector<int8_t>& data, uint32_t width, uint32_t height){
     while(grid[path.back().y * width + path.back().x] != CellType::Start){
         Vec2D lowest = Vec2D{0, 0};
         Vec2D current = path.back();
+        // Search for the lowest neighbor.
         for(auto& di : cardDirs){
             auto pos = Vec2D{current.x + di.x, current.y + di.y};
             if(pos.x < 0 || pos.x >= width)  continue;
@@ -93,6 +98,7 @@ void map_fun(const std::vector<int8_t>& data, uint32_t width, uint32_t height){
     }
 
     // Simplifies the path.
+    // If 3 cells are aligned, it is not necessary to add a waypoint to the middle one.
     std::vector<Vec2D>::iterator head = path.rbegin() + 2;
     std::vector<Vec2D>::iterator middle = path.rbegin() + 1;
     std::vector<Vec2D>::iterator tail = path.rbegin();
@@ -109,6 +115,11 @@ void map_fun(const std::vector<int8_t>& data, uint32_t width, uint32_t height){
     for(auto& ve : betterPath){
         ROS_INFO("x: %i y: %i", ve.x, ve.y);
     }
+
+    // I am stuck here : How to tell where are the waypoints in the real world ?
+    // the map coordinates must be transformed to real world ones, to know what directions the robot should go.
+    // For exemple is the map rotated, or scaled in some way, we need to apply these transformations
+    // to the waypoints.
 }
 
 void map_callback(const nav_msgs::OccupancyGrid::ConstPtr& map){
